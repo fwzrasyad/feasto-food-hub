@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -6,15 +6,57 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Store, Star, MapPin, ChevronRight } from "lucide-react";
-import { vendors, hostels } from "@/lib/vendorsData";
+import { Store, Star, MapPin, ChevronRight, Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
+
+interface Vendor {
+  id: number;
+  name: string;
+  description: string;
+  image_url: string;
+  hostel: string;
+  cuisine: string;
+  rating: number;
+  is_open: boolean;
+}
 
 const Vendors = () => {
   const navigate = useNavigate();
   const [selectedHostel, setSelectedHostel] = useState<string>("All");
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredVendors = selectedHostel === "All" 
-    ? vendors 
+  const hostels = ["Aman Damai", "Fajar Harapan", "Bakti Permai", "Cahaya Gemilang", "Indah Kembara", "Restu & Saujana", "Tekun"];
+
+  useEffect(() => {
+    fetchVendors();
+  }, []);
+
+  const fetchVendors = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('vendors')
+      .select('*')
+      .eq('is_open', true); // Show only open vendors? Maybe show all but badge them.
+
+    if (error) {
+      console.error("Error fetching vendors:", error);
+    } else {
+      // Map DB fields to UI fields if necessary, or ensure schema matches.
+      // Schema has: id, name, description, image_url, hostel, cuisine, is_open
+      // Missing: rating (we can default to 4.5 or fetch from reviews later)
+      const mappedVendors = data?.map((v: any) => ({
+        ...v,
+        rating: 4.5, // Placeholder until reviews are linked
+        cuisine: v.cuisine || "Various"
+      })) || [];
+      setVendors(mappedVendors);
+    }
+    setLoading(false);
+  };
+
+  const filteredVendors = selectedHostel === "All"
+    ? vendors
     : vendors.filter(v => v.hostel === selectedHostel);
 
   const handleVendorClick = (vendorId: number) => {
@@ -25,7 +67,7 @@ const Vendors = () => {
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
-      
+
       <main className="flex-1 py-8 bg-gradient-to-b from-background to-muted/30">
         <div className="container mx-auto px-4">
           <div className="mb-12 text-center">
@@ -53,28 +95,32 @@ const Vendors = () => {
             </TabsList>
 
             <TabsContent value={selectedHostel} className="mt-10">
-              {filteredVendors.length === 0 ? (
+              {loading ? (
+                <div className="flex justify-center py-20">
+                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                </div>
+              ) : filteredVendors.length === 0 ? (
                 <Card className="shadow-custom-lg">
                   <CardContent className="p-16 text-center">
                     <Store className="h-20 w-20 mx-auto mb-6 text-muted-foreground" />
                     <h3 className="text-2xl font-display font-bold mb-3">No Vendors Found</h3>
                     <p className="text-muted-foreground text-lg">
-                      No vendors available in this hostel yet
+                      No vendors available in {selectedHostel} yet
                     </p>
                   </CardContent>
                 </Card>
               ) : (
                 <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
                   {filteredVendors.map((vendor) => (
-                    <Card 
-                      key={vendor.id} 
+                    <Card
+                      key={vendor.id}
                       className="hover-lift cursor-pointer group shadow-custom-md hover:shadow-custom-lg transition-all duration-500 border-2 hover:border-primary/20"
                       onClick={() => handleVendorClick(vendor.id)}
                     >
                       <CardContent className="p-0">
                         <div className="relative overflow-hidden rounded-t-lg">
                           <img
-                            src={vendor.image}
+                            src={vendor.image_url}
                             alt={vendor.name}
                             className="w-full h-56 object-cover transition-transform duration-700 group-hover:scale-110"
                           />
@@ -82,8 +128,13 @@ const Vendors = () => {
                           <Badge className="absolute top-6 right-6 bg-white/95 text-primary backdrop-blur-sm font-semibold px-4 py-2 shadow-md">
                             {vendor.cuisine}
                           </Badge>
+                          {!vendor.is_open && (
+                            <div className="absolute inset-0 bg-background/80 backdrop-blur-[2px] flex items-center justify-center pointer-events-none">
+                              <Badge variant="destructive" className="text-lg px-6 py-2">CLOSED</Badge>
+                            </div>
+                          )}
                         </div>
-                        
+
                         <div className="p-8">
                           <div className="flex items-start justify-between mb-4">
                             <div>
@@ -100,19 +151,20 @@ const Vendors = () => {
                               <span className="text-base font-bold">{vendor.rating}</span>
                             </div>
                           </div>
-                          
-                          <p className="text-base text-muted-foreground mb-6 leading-relaxed">
+
+                          <p className="text-base text-muted-foreground mb-6 leading-relaxed line-clamp-2">
                             {vendor.description}
                           </p>
-                          
-                          <Button 
+
+                          <Button
                             className="w-full gradient-primary group-hover:shadow-gold-lg transition-all py-6 text-base font-semibold"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleVendorClick(vendor.id);
                             }}
+                            disabled={!vendor.is_open}
                           >
-                            View Menu
+                            {vendor.is_open ? 'View Menu' : 'Closed'}
                             <ChevronRight className="h-5 w-5 ml-2 group-hover:translate-x-2 transition-transform" />
                           </Button>
                         </div>

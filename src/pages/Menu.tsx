@@ -15,7 +15,7 @@ import { toast } from "sonner";
 // Import Supabase Client
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/context/AuthContext";
-import { vendors } from "@/lib/vendorsData"; // Keep vendors static for now, or fetch them too if you want
+// import { vendors } from "@/lib/vendorsData"; // REMOVED
 
 // Define Types locally to match Database + Frontend needs
 export interface MenuItem {
@@ -50,6 +50,7 @@ const Menu = () => {
   const [selectedVendorId, setSelectedVendorId] = useState<number | null>(null);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [loading, setLoading] = useState(true);
+  const [currentVendor, setCurrentVendor] = useState<any>(null); // New State
 
   // Categories can be static or dynamic. Static is fine for now.
   const categories = ["All", "Rice", "Noodles", "Chicken", "Beverages", "Snacks"];
@@ -68,12 +69,26 @@ const Menu = () => {
       const currentVendorId = vendorIdStore ? parseInt(vendorIdStore) : null;
       setSelectedVendorId(currentVendorId);
 
-      // FETCH FROM DB
+      // FETCH VENDOR INFO (If selected)
+      if (currentVendorId) {
+        const { data: vendorData } = await supabase
+          .from('vendors')
+          .select('*')
+          .eq('id', currentVendorId)
+          .single();
+
+        if (vendorData) setCurrentVendor(vendorData);
+      }
+
+      // FETCH MENU ITEMS
       let query = supabase.from('menu_items').select('*');
 
       // Optional: Filter by vendor in the database query itself (Better performance)
       if (currentVendorId) {
         query = query.eq('vendor_id', currentVendorId);
+      } else {
+        // If no vendor selected, maybe limit or show all? 
+        // For now, let's just show all to keep it simple, or user can browse all food
       }
 
       const { data, error } = await query;
@@ -237,7 +252,6 @@ const Menu = () => {
     return matchesSearch && matchesCategory;
   });
 
-  const currentVendor = selectedVendorId ? vendors.find(v => v.id === selectedVendorId) : null;
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 

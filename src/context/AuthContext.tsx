@@ -6,9 +6,13 @@ import { User as SupabaseUser } from "@supabase/supabase-js";
 // Define User type
 export interface User {
   id: string;
-  name: string;
+  name: string; // Keep for backward compatibility or display
   email: string;
   role: "admin" | "user" | "vendor";
+  username?: string;
+  full_name?: string;
+  phone_number?: string;
+  avatar_url?: string;
 }
 
 interface AuthContextType {
@@ -18,6 +22,7 @@ interface AuthContextType {
   register: (email: string, password: string, name: string, role: string) => Promise<void>;
   logout: () => Promise<void>;
   loading: boolean;
+  refreshLevel: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,12 +42,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (error) {
         console.error("Error fetching profile:", error);
-        // Fallback to metadata if profile fetch fails (though it shouldn't)
+        // Fallback to metadata
         return {
           id: sbUser.id,
           email: sbUser.email || "",
           name: sbUser.user_metadata?.name || "User",
           role: sbUser.user_metadata?.role || "user",
+          username: sbUser.user_metadata?.username || "",
+          full_name: sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || "",
+          avatar_url: "",
+          phone_number: "",
         };
       }
 
@@ -51,6 +60,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         email: sbUser.email || "",
         name: data.full_name || sbUser.user_metadata?.name || "User",
         role: data.role || "user",
+        username: data.username,
+        full_name: data.full_name,
+        phone_number: data.phone_number,
+        avatar_url: data.avatar_url,
       };
     } catch (e) {
       console.error("Exception fetching profile:", e);
@@ -58,23 +71,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const refreshLevel = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      const userProfile = await fetchProfile(session.user);
+      setUser(userProfile);
+    }
+  };
+
   useEffect(() => {
     // 1. Check Active Session
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        const userProfile = await fetchProfile(session.user);
-        setUser(userProfile);
-      }
+      await refreshLevel();
       setLoading(false);
     };
 
     checkSession();
 
-    // 2. Listen for Auth Changes (Login/Logout/Auto-refresh)
+    // 2. Listen for Auth Changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
-        // We might be loading again if switching users
         const userProfile = await fetchProfile(session.user);
         setUser(userProfile);
       } else {
@@ -117,10 +133,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const { error } = await supabase.auth.signOut();
     if (error) toast.error(error.message);
     else toast.info("Logged out");
+    setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, register, logout, loading, refreshLevel }}>
       {!loading && children}
     </AuthContext.Provider>
   );
