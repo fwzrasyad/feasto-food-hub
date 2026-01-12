@@ -2,7 +2,7 @@
 
 Feasto is a modern, full-stack web application designed to streamline food ordering within Universiti Sains Malaysia (USM). It connects students (customers) with campus cafeteria vendors through a seamless digital interface.
 
-![Project Banner](https://placehold.co/1200x400?text=USM+Feasto+Preview)
+
 ## 🚀 Key Features
 
 ### 👤 For Customers (Students)
