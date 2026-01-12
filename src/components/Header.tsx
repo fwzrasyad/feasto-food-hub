@@ -126,7 +126,7 @@ const Header = () => {
 
         {/* Actions */}
         <div className="flex items-center gap-2 md:gap-4">
-          <Button variant="ghost" size="icon" onClick={toggleDarkMode} className="rounded-full hover:bg-muted text-muted-foreground">
+          <Button variant="ghost" size="icon" onClick={toggleDarkMode} className="rounded-full hover:bg-primary/10 hover:text-primary text-muted-foreground transition-colors">
             {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </Button>
 
@@ -135,8 +135,8 @@ const Header = () => {
             <Button
               variant="ghost"
               size="icon"
-              className="relative rounded-full hover:bg-muted text-muted-foreground"
-              onClick={() => navigate('/menu?openCart=1')}
+              className="relative rounded-full hover:bg-primary/10 hover:text-primary text-muted-foreground transition-colors"
+              onClick={() => navigate('/cart')}
             >
               <ShoppingCart className="h-5 w-5" />
               {cartCount > 0 && (

@@ -11,6 +11,7 @@ import VendorManagement from "./pages/VendorManagement";
 import Delivery from "./pages/Delivery";
 import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
+import Cart from "./pages/Cart";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./context/AuthContext";
@@ -37,6 +38,7 @@ const App = () => (
             <Route path="/vendor-management" element={<VendorManagement />} />
             <Route path="/delivery" element={<Delivery />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/cart" element={<Cart />} />
             <Route path="/admin" element={<Admin />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
