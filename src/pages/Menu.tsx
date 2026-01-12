@@ -45,7 +45,7 @@ const Menu = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [showCart, setShowCart] = useState(false);
+  // const [showCart, setShowCart] = useState(false); // REMOVED
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [selectedVendorId, setSelectedVendorId] = useState<number | null>(null);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
@@ -124,11 +124,10 @@ const Menu = () => {
     try {
       const params = new URLSearchParams(location.search);
       if (params.get("openCart") === "1") {
-        setShowCart(true);
-        navigate(location.pathname, { replace: true });
+        navigate("/cart"); // Redirect to new dedicated page
       }
     } catch (e) { /* ignore */ }
-  }, [location.search]);
+  }, [location.search, navigate]);
 
   // Cart Logic
   const updateCart = (newCart: CartItem[]) => {
@@ -149,101 +148,15 @@ const Menu = () => {
     } else {
       updateCart([...cart, { ...item, quantity: qty }]);
     }
-    toast.success(`${qty}x ${item.name} added to cart!`);
-  };
-
-  const updateQuantity = (id: number, change: number) => {
-    const updatedCart = cart
-      .map((item) =>
-        item.id === id
-          ? { ...item, quantity: Math.max(0, item.quantity + change) }
-          : item
-      )
-      .filter((item) => item.quantity > 0);
-    updateCart(updatedCart);
-  };
-
-  const removeFromCart = (id: number) => {
-    updateCart(cart.filter((item) => item.id !== id));
-    toast.info("Item removed");
+    toast.success(`${qty}x ${item.name} added to cart!`, {
+      action: {
+        label: 'View Cart',
+        onClick: () => navigate('/cart')
+      }
+    });
   };
 
   const { user } = useAuth(); // Needed for checkout
-
-  const checkout = async () => {
-    if (cart.length === 0) {
-      return toast.error("Your cart is empty!");
-    }
-
-    if (!user) {
-      toast.error("Please login to place an order");
-      navigate("/auth");
-      return;
-    }
-
-    try {
-      // 1. Group items by vendor
-      // We need to create one order per vendor to match the schema design 
-      const itemsByVendor: Record<number, CartItem[]> = {};
-      cart.forEach(item => {
-        const originalItem = menuItems.find(m => m.id === item.id);
-        const vId = originalItem?.vendorId || 1; // Fallback
-
-        if (!itemsByVendor[vId]) itemsByVendor[vId] = [];
-        itemsByVendor[vId].push(item);
-      });
-
-      // 2. Create Order for each Vendor
-      const promises = Object.entries(itemsByVendor).map(async ([vendorIdStr, items]) => {
-        const vendorId = parseInt(vendorIdStr);
-        const vendorTotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
-        // A. Insert Order
-        const { data: orderData, error: orderError } = await supabase
-          .from('orders')
-          .insert({
-            user_id: user.id,
-            vendor_id: vendorId,
-            total_amount: vendorTotal,
-            status: 'pending'
-          })
-          .select()
-          .single();
-
-        if (orderError) throw orderError;
-
-        // B. Insert Order Items
-        const orderItemsData = items.map(item => ({
-          order_id: orderData.id,
-          menu_item_id: item.id,
-          quantity: item.quantity,
-          price_at_time: item.price
-        }));
-
-        const { error: itemsError } = await supabase
-          .from('order_items')
-          .insert(orderItemsData);
-
-        if (itemsError) throw itemsError;
-      });
-
-      await Promise.all(promises);
-
-      // Save to LocalStorage (Legacy/Backup for demo persistence if needed, but redundant now)
-      // const orderHistory = JSON.parse(localStorage.getItem("orderHistory") || "[]");
-      // orderHistory.push(...); 
-      // localStorage.setItem("orderHistory", JSON.stringify(orderHistory));
-
-      // Clear Cart
-      updateCart([]);
-      setShowCart(false);
-      toast.success("Order placed successfully! 🎉");
-
-    } catch (error: any) {
-      console.error("Checkout error:", error);
-      toast.error("Failed to place order: " + error.message);
-    }
-  };
 
   // Filter Logic (Client side filtering for search/category)
   const filteredItems = menuItems.filter((item) => {
@@ -252,13 +165,10 @@ const Menu = () => {
     return matchesSearch && matchesCategory;
   });
 
-  const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
-      <main className="flex-1 py-8 bg-gradient-to-b from-background to-muted/30">
+      <main className="flex-1 py-12 bg-gradient-to-b from-background to-muted/30">
         <div className="container mx-auto px-4">
 
           {/* Vendor Header */}
@@ -271,29 +181,34 @@ const Menu = () => {
                 <ArrowLeft className="h-4 w-4 mr-2" /> Back to Vendors
               </Button>
             )}
-            <h1 className="text-4xl font-bold text-primary">
-              {currentVendor ? currentVendor.name : "All Menu Items"}
-            </h1>
+            <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-4">
+              <div className="text-center md:text-left">
+                <h1 className="text-4xl md:text-5xl font-display font-bold mb-3 bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60">
+                  {currentVendor ? currentVendor.name : "All Menu Items"}
+                </h1>
+                {currentVendor && <p className="text-lg text-muted-foreground max-w-2xl">{currentVendor.description || "Order delicious meals directly from us."}</p>}
+              </div>
+            </div>
           </div>
 
           {/* Search & Filter */}
           <div className="mb-8 space-y-4">
-            <div className="relative">
+            <div className="relative max-w-lg mx-auto md:mx-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input
                 placeholder="Search food..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-10 h-11 border-primary/20 focus-visible:ring-primary shadow-sm"
               />
             </div>
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-2 flex-wrap justify-center md:justify-start">
               {categories.map((category) => (
                 <Button
                   key={category}
                   variant={selectedCategory === category ? "default" : "outline"}
                   onClick={() => setSelectedCategory(category)}
-                  className={selectedCategory === category ? "gradient-primary" : ""}
+                  className={`rounded-full px-6 transition-all ${selectedCategory === category ? "gradient-primary border-0 shadow-md" : "hover:bg-primary/5 hover:text-primary border-primary/20 bg-background"}`}
                 >
                   {category}
                 </Button>
@@ -312,13 +227,20 @@ const Menu = () => {
                   {...item}
                   onAddToCart={(item) => addToCart(item as MenuItem, 1)}
                   onClick={() => setSelectedItem(item)}
+                  isVendor={user?.role === 'vendor'}
                 />
               ))}
             </div>
           )}
 
           {!loading && filteredItems.length === 0 && (
-            <p className="text-center text-muted-foreground py-12">No items found.</p>
+            <div className="text-center py-20">
+              <div className="bg-muted/50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Search className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">No items found</h3>
+              <p className="text-muted-foreground">Try adjusting your search or category filter.</p>
+            </div>
           )}
 
           {/* Item Detail Modal */}
@@ -327,68 +249,11 @@ const Menu = () => {
             onClose={() => setSelectedItem(null)}
             item={selectedItem}
             onAddToCart={(item, qty) => addToCart(item as MenuItem, qty)}
+            isVendor={user?.role === 'vendor'}
           />
 
         </div>
       </main>
-
-      {/* Floating Cart Button */}
-      {cart.length > 0 && (
-        <Button
-          onClick={() => setShowCart(!showCart)}
-          className="fixed bottom-6 right-6 h-16 w-16 rounded-full gradient-gold shadow-lg z-40"
-          size="icon"
-        >
-          <div className="relative">
-            <ShoppingCart className="h-6 w-6" />
-            <Badge className="absolute -right-2 -top-2 bg-primary text-white">{cartItemCount}</Badge>
-          </div>
-        </Button>
-      )}
-
-      {/* Cart Sidebar */}
-      {showCart && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50" onClick={() => setShowCart(false)}>
-          <div className="fixed right-0 top-0 h-full w-full max-w-md bg-card shadow-xl overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <Card className="h-full rounded-none border-0">
-              <CardHeader className="border-b flex flex-row items-center justify-between">
-                <CardTitle>Your Cart</CardTitle>
-                <Button variant="ghost" size="icon" onClick={() => setShowCart(false)}>✕</Button>
-              </CardHeader>
-              <CardContent className="p-4">
-                {cart.length === 0 ? <p className="text-center py-8">Cart is empty</p> : (
-                  <>
-                    <div className="space-y-4 mb-4">
-                      {cart.map((item) => (
-                        <div key={item.id} className="flex gap-3 p-3 bg-muted rounded-lg">
-                          <img src={item.image} alt={item.name} className="w-20 h-20 object-cover rounded" />
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-sm">{item.name}</h4>
-                            <p className="text-primary font-semibold">RM {item.price.toFixed(2)}</p>
-                            <div className="flex items-center gap-2 mt-2">
-                              <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => updateQuantity(item.id, -1)}><Minus className="h-3 w-3" /></Button>
-                              <span className="w-8 text-center">{item.quantity}</span>
-                              <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => updateQuantity(item.id, 1)}><Plus className="h-3 w-3" /></Button>
-                              <Button size="icon" variant="ghost" className="h-7 w-7 ml-auto" onClick={() => removeFromCart(item.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="border-t pt-4">
-                      <div className="flex justify-between text-lg font-semibold mb-4">
-                        <span>Total:</span>
-                        <span className="text-primary">RM {cartTotal.toFixed(2)}</span>
-                      </div>
-                      <Button className="w-full gradient-primary" size="lg" onClick={checkout}>Checkout</Button>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      )}
       <Footer />
     </div>
   );

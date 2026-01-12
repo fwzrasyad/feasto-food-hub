@@ -149,75 +149,71 @@ const Cart = () => {
                         <h1 className="text-3xl font-display font-bold">Your Cart</h1>
                     </div>
 
-                    <div className="grid md:grid-cols-3 gap-8">
-                        {/* Cart Items List */}
-                        <div className="md:col-span-2 space-y-4">
-                            {cart.length === 0 ? (
-                                <Card className="text-center py-16 border-dashed">
-                                    <CardContent>
-                                        <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                                            <ShoppingBag className="h-8 w-8 text-primary" />
-                                        </div>
-                                        <h3 className="text-xl font-semibold mb-2">Your cart is empty</h3>
-                                        <p className="text-muted-foreground mb-6">Hungry? Browse the menu to add some delicious food!</p>
-                                        <Button className="gradient-primary" onClick={() => navigate("/vendors")}>
-                                            Browse Restaurants
-                                        </Button>
-                                    </CardContent>
-                                </Card>
-                            ) : (
-                                <>
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h2 className="text-xl font-semibold">Items</h2>
-                                        <Button variant="ghost" size="sm" onClick={() => {
-                                            if (confirm("Clear entire cart?")) updateCart([]);
-                                        }} className="text-destructive hover:bg-destructive/10">
-                                            <Trash2 className="h-4 w-4 mr-2" /> Clear All
-                                        </Button>
+                    {cart.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center min-h-[50vh] animate-in fade-in zoom-in duration-500">
+                            <Card className="text-center py-16 border-dashed w-full max-w-md shadow-sm bg-card/50 backdrop-blur-sm">
+                                <CardContent>
+                                    <div className="bg-primary/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+                                        <ShoppingBag className="h-10 w-10 text-primary" />
                                     </div>
-                                    {cart.map((item) => (
-                                        <Card key={item.id} className="overflow-hidden hover:shadow-md transition-shadow">
-                                            <div className="flex p-4 gap-4">
-                                                <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-md border bg-muted">
-                                                    <img
-                                                        src={item.image}
-                                                        alt={item.name}
-                                                        className="h-full w-full object-cover"
-                                                    />
-                                                </div>
-                                                <div className="flex flex-1 flex-col justify-between">
-                                                    <div className="flex justify-between items-start">
-                                                        <div>
-                                                            <h3 className="font-semibold text-lg">{item.name}</h3>
-                                                            <p className="text-sm text-muted-foreground line-clamp-1">{item.category}</p>
-                                                        </div>
-                                                        <p className="font-bold text-lg text-primary">RM {(item.price * item.quantity).toFixed(2)}</p>
+                                    <h3 className="text-2xl font-display font-bold mb-3">Your cart is empty</h3>
+                                    <p className="text-muted-foreground mb-8 text-lg">Hungry? Browse the menu to add some delicious food!</p>
+                                    <Button className="gradient-primary h-12 px-8 text-lg shadow-lg hover:shadow-primary/25 rounded-full" onClick={() => navigate("/vendors")}>
+                                        Browse Restaurants
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    ) : (
+                        <div className="grid md:grid-cols-3 gap-8">
+                            <div className="md:col-span-2 space-y-4">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h2 className="text-xl font-semibold">Items</h2>
+                                    <Button variant="ghost" size="sm" onClick={() => {
+                                        if (confirm("Clear entire cart?")) updateCart([]);
+                                    }} className="text-destructive hover:bg-destructive/10">
+                                        <Trash2 className="h-4 w-4 mr-2" /> Clear All
+                                    </Button>
+                                </div>
+                                {cart.map((item) => (
+                                    <Card key={item.id} className="overflow-hidden hover:shadow-md transition-shadow">
+                                        <div className="flex p-4 gap-4">
+                                            <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-md border bg-muted">
+                                                <img
+                                                    src={item.image}
+                                                    alt={item.name}
+                                                    className="h-full w-full object-cover"
+                                                />
+                                            </div>
+                                            <div className="flex flex-1 flex-col justify-between">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <h3 className="font-semibold text-lg">{item.name}</h3>
+                                                        <p className="text-sm text-muted-foreground line-clamp-1">{item.category}</p>
                                                     </div>
+                                                    <p className="font-bold text-lg text-primary">RM {(item.price * item.quantity).toFixed(2)}</p>
+                                                </div>
 
-                                                    <div className="flex items-center justify-between mt-4">
-                                                        <div className="flex items-center gap-3 bg-muted/50 rounded-lg p-1">
-                                                            <Button size="icon" variant="ghost" className="h-8 w-8 rounded-md bg-white shadow-sm hover:bg-white/90" onClick={() => updateQuantity(item.id, -1)}>
-                                                                <Minus className="h-3 w-3" />
-                                                            </Button>
-                                                            <span className="w-8 text-center font-medium">{item.quantity}</span>
-                                                            <Button size="icon" variant="ghost" className="h-8 w-8 rounded-md bg-white shadow-sm hover:bg-white/90" onClick={() => updateQuantity(item.id, 1)}>
-                                                                <Plus className="h-3 w-3" />
-                                                            </Button>
-                                                        </div>
-                                                        <Button size="icon" variant="ghost" className="text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => removeFromCart(item.id)}>
-                                                            <Trash2 className="h-5 w-5" />
+                                                <div className="flex items-center justify-between mt-4">
+                                                    <div className="flex items-center gap-3 bg-muted/50 rounded-lg p-1">
+                                                        <Button size="icon" variant="ghost" className="h-8 w-8 rounded-md bg-white shadow-sm hover:bg-white/90" onClick={() => updateQuantity(item.id, -1)}>
+                                                            <Minus className="h-3 w-3" />
+                                                        </Button>
+                                                        <span className="w-8 text-center font-medium">{item.quantity}</span>
+                                                        <Button size="icon" variant="ghost" className="h-8 w-8 rounded-md bg-white shadow-sm hover:bg-white/90" onClick={() => updateQuantity(item.id, 1)}>
+                                                            <Plus className="h-3 w-3" />
                                                         </Button>
                                                     </div>
+                                                    <Button size="icon" variant="ghost" className="text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => removeFromCart(item.id)}>
+                                                        <Trash2 className="h-5 w-5" />
+                                                    </Button>
                                                 </div>
                                             </div>
-                                        </Card>
-                                    ))}
-                                </>
-                            )}
-                        </div>
+                                        </div>
+                                    </Card>
+                                ))}
+                            </div>
 
-                        {/* Order Summary */}
-                        {cart.length > 0 && (
                             <div className="md:col-span-1">
                                 <Card className="sticky top-24 shadow-lg border-primary/10">
                                     <CardHeader className="bg-muted/30 pb-4">
@@ -246,8 +242,8 @@ const Cart = () => {
                                     </CardContent>
                                 </Card>
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
             </main>
             <Footer />

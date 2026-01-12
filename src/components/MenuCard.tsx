@@ -11,9 +11,10 @@ interface MenuCardProps {
   image: string;
   onAddToCart: (item: any) => void;
   onClick?: () => void;
+  isVendor?: boolean;
 }
 
-const MenuCard = ({ id, name, price, category, image, onAddToCart, onClick }: MenuCardProps) => {
+const MenuCard = ({ id, name, price, category, image, onAddToCart, onClick, isVendor }: MenuCardProps) => {
   return (
     <Card
       className="group overflow-hidden hover-lift cursor-pointer shadow-custom-md hover:shadow-custom-lg border-2 hover:border-primary/20 transition-all duration-500"
@@ -42,12 +43,21 @@ const MenuCard = ({ id, name, price, category, image, onAddToCart, onClick }: Me
           <Button
             onClick={(e) => {
               e.stopPropagation();
-              onAddToCart({ id, name, price, image });
+              if (!isVendor) {
+                onAddToCart({ id, name, price, image });
+              }
             }}
-            className="gradient-primary shadow-md hover:shadow-gold-lg transition-all px-6 py-5"
+            disabled={isVendor}
+            className={`shadow-md transition-all px-6 py-5 ${isVendor ? 'bg-muted text-muted-foreground cursor-not-allowed' : 'gradient-primary hover:shadow-gold-lg'}`}
           >
-            <Plus className="h-5 w-5 mr-1" />
-            Add
+            {isVendor ? (
+              <span>View</span>
+            ) : (
+              <>
+                <Plus className="h-5 w-5 mr-1" />
+                Add
+              </>
+            )}
           </Button>
         </div>
       </CardContent>

@@ -24,9 +24,10 @@ interface ItemDetailsDialogProps {
         category: string;
     } | null;
     onAddToCart: (item: any, quantity: number) => void;
+    isVendor?: boolean;
 }
 
-const ItemDetailsDialog = ({ isOpen, onClose, item, onAddToCart }: ItemDetailsDialogProps) => {
+const ItemDetailsDialog = ({ isOpen, onClose, item, onAddToCart, isVendor }: ItemDetailsDialogProps) => {
     const [quantity, setQuantity] = useState(1);
 
     if (!item) return null;
@@ -93,9 +94,19 @@ const ItemDetailsDialog = ({ isOpen, onClose, item, onAddToCart }: ItemDetailsDi
                         </div>
                     </div>
 
-                    <Button onClick={handleAddToCart} className="w-full gradient-primary text-lg py-6 shadow-lg shadow-primary/20">
-                        <ShoppingCart className="mr-2 h-5 w-5" />
-                        Add to Cart - RM {(item.price * quantity).toFixed(2)}
+                    <Button
+                        onClick={handleAddToCart}
+                        disabled={isVendor}
+                        className={`w-full text-lg py-6 shadow-lg ${isVendor ? "bg-muted text-muted-foreground cursor-not-allowed" : "gradient-primary shadow-primary/20"}`}
+                    >
+                        {isVendor ? (
+                            <span>Vendor View Only</span>
+                        ) : (
+                            <>
+                                <ShoppingCart className="mr-2 h-5 w-5" />
+                                Add to Cart - RM {(item.price * quantity).toFixed(2)}
+                            </>
+                        )}
                     </Button>
 
                     <div className="border-t pt-6">

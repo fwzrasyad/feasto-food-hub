@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Loader2, Package, ArrowRight, Clock, MapPin, Eye, Receipt } from "lucide-react";
+import { Loader2, Package, ArrowRight, Clock, MapPin, Eye, Receipt, Truck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/context/AuthContext";
@@ -160,60 +160,70 @@ const Orders = () => {
                                             )}
                                         </div>
 
-                                        <Dialog>
-                                            <DialogTrigger asChild>
-                                                <Button variant="outline" className="w-full">
-                                                    <Eye className="w-4 h-4 mr-2" /> View Full Details
+                                        <div className="flex gap-3 mt-4">
+                                            {order.status !== 'cancelled' && (
+                                                <Button
+                                                    className="flex-1 gradient-primary shadow-md hover:shadow-primary/25"
+                                                    onClick={() => navigate(`/delivery?id=${order.id}`)}
+                                                >
+                                                    <Truck className="w-4 h-4 mr-2" /> Track Delivery
                                                 </Button>
-                                            </DialogTrigger>
-                                            <DialogContent className="max-w-md">
-                                                <DialogHeader>
-                                                    <DialogTitle className="flex items-center gap-2">
-                                                        <Receipt className="w-5 h-5 text-primary" />
-                                                        Order Receipt #{order.id}
-                                                    </DialogTitle>
-                                                </DialogHeader>
+                                            )}
+                                            <Dialog>
+                                                <DialogTrigger asChild>
+                                                    <Button variant="outline" className="flex-1">
+                                                        <Eye className="w-4 h-4 mr-2" /> Details
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent className="max-w-md">
+                                                    <DialogHeader>
+                                                        <DialogTitle className="flex items-center gap-2">
+                                                            <Receipt className="w-5 h-5 text-primary" />
+                                                            Order Receipt #{order.id}
+                                                        </DialogTitle>
+                                                    </DialogHeader>
 
-                                                <div className="py-4 space-y-6">
-                                                    <div className="flex justify-between items-center border-b pb-4">
-                                                        <div>
-                                                            <p className="font-bold text-lg">{order.vendor?.name}</p>
-                                                            <p className="text-sm text-muted-foreground">{new Date(order.created_at).toLocaleString()}</p>
-                                                        </div>
-                                                        <Badge variant="outline" className={getStatusColor(order.status)}>
-                                                            {order.status}
-                                                        </Badge>
-                                                    </div>
-
-                                                    <div className="space-y-3">
-                                                        {order.order_items.map((item, idx) => (
-                                                            <div key={idx} className="flex justify-between text-sm">
-                                                                <div className="flex gap-3">
-                                                                    <span className="font-bold w-6 text-center bg-muted rounded">{item.quantity}x</span>
-                                                                    <span>{item.menu_item?.name}</span>
-                                                                </div>
-                                                                <span>RM {(item.price_at_time * item.quantity).toFixed(2)}</span>
+                                                    <div className="py-4 space-y-6">
+                                                        <div className="flex justify-between items-center border-b pb-4">
+                                                            <div>
+                                                                <p className="font-bold text-lg">{order.vendor?.name}</p>
+                                                                <p className="text-sm text-muted-foreground">{new Date(order.created_at).toLocaleString()}</p>
                                                             </div>
-                                                        ))}
-                                                    </div>
+                                                            <Badge variant="outline" className={getStatusColor(order.status)}>
+                                                                {order.status}
+                                                            </Badge>
+                                                        </div>
 
-                                                    <div className="border-t pt-4 space-y-2">
-                                                        <div className="flex justify-between text-sm">
-                                                            <span>Subtotal</span>
-                                                            <span>RM {order.total_amount.toFixed(2)}</span>
+                                                        <div className="space-y-3">
+                                                            {order.order_items.map((item, idx) => (
+                                                                <div key={idx} className="flex justify-between text-sm">
+                                                                    <div className="flex gap-3">
+                                                                        <span className="font-bold w-6 text-center bg-muted rounded">{item.quantity}x</span>
+                                                                        <span>{item.menu_item?.name}</span>
+                                                                    </div>
+                                                                    <span>RM {(item.price_at_time * item.quantity).toFixed(2)}</span>
+                                                                </div>
+                                                            ))}
                                                         </div>
-                                                        <div className="flex justify-between text-sm">
-                                                            <span>Delivery Fee</span>
-                                                            <span>RM 0.00</span>
-                                                        </div>
-                                                        <div className="flex justify-between font-bold text-lg pt-2 border-t border-dashed">
-                                                            <span>Total</span>
-                                                            <span className="text-primary">RM {order.total_amount.toFixed(2)}</span>
+
+                                                        <div className="border-t pt-4 space-y-2">
+                                                            <div className="flex justify-between text-sm">
+                                                                <span>Subtotal</span>
+                                                                <span>RM {order.total_amount.toFixed(2)}</span>
+                                                            </div>
+                                                            <div className="flex justify-between text-sm">
+                                                                <span>Delivery Fee</span>
+                                                                <span>RM 0.00</span>
+                                                            </div>
+                                                            <div className="flex justify-between font-bold text-lg pt-2 border-t border-dashed">
+                                                                <span>Total</span>
+                                                                <span className="text-primary">RM {order.total_amount.toFixed(2)}</span>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            </DialogContent>
-                                        </Dialog>
+                                                </DialogContent>
+                                            </Dialog>
+                                        </div>
 
                                     </CardContent>
                                 </Card>
