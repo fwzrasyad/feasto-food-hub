@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { safeJSONParse, safeJSONStringify } from "@/utils/storage";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,7 @@ interface CartItem {
 
 const Cart = () => {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const [cart, setCart] = useState<CartItem[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -66,6 +67,7 @@ const Cart = () => {
 
     const checkout = async () => {
         if (cart.length === 0) return toast.error("Your cart is empty!");
+        if (authLoading) return;
         if (!user) {
             toast.error("Please login to place an order");
             navigate("/auth");
@@ -75,12 +77,22 @@ const Cart = () => {
         setLoading(true);
         try {
             // 1. Group items by vendor
+            // We must create separate orders for each vendor to track their specific revenue
+            // and ensure vendors only see their own orders.
             const itemsByVendor: Record<number, CartItem[]> = {};
             cart.forEach(item => {
-                const vId = item.vendorId || 1; // Fallback
+                const vId = item.vendorId;
+                if (!vId) {
+                    console.error("Item missing vendorId:", item);
+                    return;
+                }
                 if (!itemsByVendor[vId]) itemsByVendor[vId] = [];
                 itemsByVendor[vId].push(item);
             });
+
+            if (Object.keys(itemsByVendor).length === 0) {
+                throw new Error("Found no valid items with vendor information in cart. Please clear and re-add items.");
+            }
 
             // 2. Create Order for each Vendor
             const promises = Object.entries(itemsByVendor).map(async ([vendorIdStr, items]) => {

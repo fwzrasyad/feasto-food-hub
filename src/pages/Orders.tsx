@@ -31,12 +31,14 @@ interface Order {
 
 const Orders = () => {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
     useEffect(() => {
+        if (authLoading) return;
+
         if (!user) {
             navigate("/auth");
             return;
@@ -77,7 +79,15 @@ const Orders = () => {
         };
 
         fetchOrders();
-    }, [user, navigate]);
+    }, [user, authLoading, navigate]);
+
+    if (authLoading) {
+        return (
+            <div className="flex min-h-screen items-center justify-center">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            </div>
+        );
+    }
 
     const getStatusColor = (status: string) => {
         switch (status.toLowerCase()) {

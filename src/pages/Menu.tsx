@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { safeJSONParse, safeJSONStringify } from "@/utils/storage";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import MenuCard from "@/components/MenuCard";
@@ -61,7 +62,7 @@ const Menu = () => {
       setLoading(true);
 
       // Load Cart from LocalStorage
-      const savedCart = JSON.parse(localStorage.getItem("cart") || "[]");
+      const savedCart = safeJSONParse("cart", []);
       setCart(savedCart);
 
       // Check URL for Vendor Filter
@@ -105,13 +106,15 @@ const Menu = () => {
           description: item.description,
           category: item.category,
           image: item.image_url || "https://placehold.co/400",
-          vendorId: item.vendor_id || 1,
+          vendorId: item.vendor_id,
           rating: 4.5,
           reviews: 10,
           calories: 0,
           isVegetarian: false
         }));
-        setMenuItems(mappedItems);
+        // Filter out items with no vendorId to be safe
+        const validItems = mappedItems.filter(item => item.vendorId);
+        setMenuItems(validItems);
       }
       setLoading(false);
     };

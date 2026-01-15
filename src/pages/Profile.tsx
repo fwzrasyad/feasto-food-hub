@@ -12,7 +12,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/context/AuthContext";
 
 const Profile = () => {
-  const { user, refreshLevel } = useAuth();
+  const { user, refreshLevel, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
@@ -33,6 +33,14 @@ const Profile = () => {
       });
     }
   }, [user]);
+
+  if (authLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();

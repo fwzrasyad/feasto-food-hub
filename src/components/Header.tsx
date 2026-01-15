@@ -3,6 +3,7 @@ import { ShoppingCart, User, Moon, Sun, LogOut, LayoutDashboard, ShoppingBag, Me
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useEffect, useState } from "react";
+import { safeJSONParse } from "@/utils/storage";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,7 +37,7 @@ const Header = () => {
     window.addEventListener("scroll", handleScroll);
 
     // Cart and Theme Logic
-    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+    const cart = safeJSONParse("cart", []);
     setCartCount(cart.reduce((sum: number, item: any) => sum + item.quantity, 0));
 
     const savedMode = localStorage.getItem("darkMode") === "true";
@@ -44,7 +45,7 @@ const Header = () => {
     if (savedMode) document.documentElement.classList.add("dark");
 
     const handleStorageChange = () => {
-      const updatedCart = JSON.parse(localStorage.getItem("cart") || "[]");
+      const updatedCart = safeJSONParse("cart", []);
       setCartCount(updatedCart.reduce((sum: number, item: any) => sum + item.quantity, 0));
     };
 

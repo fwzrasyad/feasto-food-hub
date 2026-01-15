@@ -34,7 +34,7 @@ const Delivery = () => {
   const [searchParams] = useSearchParams();
   const orderId = searchParams.get("id");
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -132,7 +132,7 @@ const Delivery = () => {
     return progress >= stepProgress;
   };
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-muted/20">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />

@@ -12,9 +12,10 @@ interface MenuCardProps {
   onAddToCart: (item: any) => void;
   onClick?: () => void;
   isVendor?: boolean;
+  vendorId?: number;
 }
 
-const MenuCard = ({ id, name, price, category, image, onAddToCart, onClick, isVendor }: MenuCardProps) => {
+const MenuCard = ({ id, name, price, category, image, onAddToCart, onClick, isVendor, vendorId }: MenuCardProps) => {
   return (
     <Card
       className="group overflow-hidden hover-lift cursor-pointer shadow-custom-md hover:shadow-custom-lg border-2 hover:border-primary/20 transition-all duration-500"
@@ -44,7 +45,7 @@ const MenuCard = ({ id, name, price, category, image, onAddToCart, onClick, isVe
             onClick={(e) => {
               e.stopPropagation();
               if (!isVendor) {
-                onAddToCart({ id, name, price, image });
+                onAddToCart({ id, name, price, image, vendorId });
               }
             }}
             disabled={isVendor}

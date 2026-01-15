@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabaseClient";
 
 interface Review {
     id: number;
     userName: string;
+    avatarUrl?: string;
     rating: number;
     comment: string;
     date: string;
@@ -18,6 +20,12 @@ interface ReviewSectionProps {
     itemId: number;
 }
 
+const formatDate = (dateString: string | number | Date) => {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "Invalid Date";
+    return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+};
+
 const ReviewSection = ({ itemId }: ReviewSectionProps) => {
     const { user, isAuthenticated } = useAuth();
     const [reviews, setReviews] = useState<Review[]>([]);
@@ -26,35 +34,34 @@ const ReviewSection = ({ itemId }: ReviewSectionProps) => {
     const [hoverRating, setHoverRating] = useState(0);
 
     useEffect(() => {
-        // Load reviews for this item
-        const storedReviews = JSON.parse(localStorage.getItem(`reviews_${itemId}`) || "[]");
+        const fetchReviews = async () => {
+            const { data, error } = await supabase
+                .from('reviews')
+                .select('*, profiles(full_name, avatar_url)')
+                .eq('menu_item_id', itemId)
+                .order('created_at', { ascending: false });
 
-        // Add some dummy reviews if empty for demo purposes
-        if (storedReviews.length === 0) {
-            const dummyReviews = [
-                {
-                    id: 1,
-                    userName: "Ali",
-                    rating: 5,
-                    comment: "Sedap gila! Best nasi lemak in town.",
-                    date: new Date(Date.now() - 86400000 * 2).toLocaleDateString()
-                },
-                {
-                    id: 2,
-                    userName: "Sarah",
-                    rating: 4,
-                    comment: "Portion is generous, but sambal slightly too spicy for me.",
-                    date: new Date(Date.now() - 86400000 * 5).toLocaleDateString()
-                }
-            ];
-            setReviews(dummyReviews);
-            localStorage.setItem(`reviews_${itemId}`, JSON.stringify(dummyReviews));
-        } else {
-            setReviews(storedReviews);
-        }
+            if (error) {
+                console.error("Error fetching reviews:", error);
+                // toast.error("Failed to load reviews. Did you run the SQL script?"); 
+            } else if (data) {
+                console.log(`Fetched ${data.length} reviews for item ${itemId}`);
+                const formattedReviews: Review[] = data.map((r: any) => ({
+                    id: r.id,
+                    userName: r.profiles?.full_name || "User",
+                    avatarUrl: r.profiles?.avatar_url,
+                    rating: r.rating,
+                    comment: r.comment,
+                    date: formatDate(r.created_at),
+                }));
+                setReviews(formattedReviews);
+            }
+        };
+
+        fetchReviews();
     }, [itemId]);
 
-    const handleSubmitReview = () => {
+    const handleSubmitReview = async () => {
         if (!isAuthenticated || !user) {
             toast.error("Please login to submit a review");
             return;
@@ -70,21 +77,32 @@ const ReviewSection = ({ itemId }: ReviewSectionProps) => {
             return;
         }
 
-        const newReview: Review = {
-            id: Date.now(),
-            userName: user.name,
-            rating: newRating,
-            comment: newComment,
-            date: new Date().toLocaleDateString(),
-        };
+        const { error } = await supabase
+            .from('reviews')
+            .insert({
+                menu_item_id: itemId,
+                user_id: user.id,
+                rating: newRating,
+                comment: newComment,
+            });
 
-        const updatedReviews = [newReview, ...reviews];
-        setReviews(updatedReviews);
-        localStorage.setItem(`reviews_${itemId}`, JSON.stringify(updatedReviews));
+        if (error) {
+            toast.error("Failed to submit review: " + error.message);
+        } else {
+            const newReview: Review = {
+                id: Date.now(),
+                userName: user.name,
+                avatarUrl: user.avatar_url,
+                rating: newRating,
+                comment: newComment,
+                date: formatDate(new Date()),
+            };
 
-        setNewRating(0);
-        setNewComment("");
-        toast.success("Review submitted successfully!");
+            setReviews([newReview, ...reviews]);
+            setNewRating(0);
+            setNewComment("");
+            toast.success("Review submitted successfully!");
+        }
     };
 
     const averageRating = reviews.length > 0
@@ -116,8 +134,8 @@ const ReviewSection = ({ itemId }: ReviewSectionProps) => {
                         >
                             <Star
                                 className={`h-6 w-6 ${star <= (hoverRating || newRating)
-                                        ? "fill-yellow-400 text-yellow-400"
-                                        : "text-muted-foreground"
+                                    ? "fill-yellow-400 text-yellow-400"
+                                    : "text-muted-foreground"
                                     }`}
                             />
                         </button>
@@ -145,6 +163,7 @@ const ReviewSection = ({ itemId }: ReviewSectionProps) => {
                         <div className="flex items-start justify-between mb-2">
                             <div className="flex items-center gap-2">
                                 <Avatar className="h-8 w-8">
+                                    <AvatarImage src={review.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${review.userName}`} />
                                     <AvatarFallback className="bg-primary/10 text-primary">
                                         {review.userName.charAt(0).toUpperCase()}
                                     </AvatarFallback>

@@ -4,6 +4,10 @@ import { supabase } from "@/lib/supabaseClient";
 import { User as SupabaseUser } from "@supabase/supabase-js";
 
 // Define User type
+/**
+ * User interface defining the structure of an authenticated user.
+ * Extends the basic Supabase user with application-specific roles and metadata.
+ */
 export interface User {
   id: string;
   name: string; // Keep for backward compatibility or display
@@ -15,6 +19,10 @@ export interface User {
   avatar_url?: string;
 }
 
+/**
+ * Context Interface for Authentication.
+ * Provides access to user state, login/register methods, and session management.
+ */
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
@@ -27,6 +35,15 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/**
+ * AuthProvider Component.
+ * Wraps the application to provide authentication state and logic.
+ * 
+ * Features:
+ * - Persists session using Supabase Auth.
+ * - Auto-refreshes user profile data on session changes.
+ * - Handles Login, Register, and Logout operations with error handling.
+ */
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -108,6 +125,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       password,
     });
     if (error) {
+      console.error("Login error object:", error);
       toast.error(error.message);
       throw error;
     }

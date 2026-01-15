@@ -10,6 +10,8 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { loginSchema, registerSchema } from "@/lib/validators";
+import { z } from "zod";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -29,12 +31,19 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
+      // 1. Input Validation (Security Technique: Input Validation)
       if (isLogin) {
+        const result = loginSchema.safeParse({ email, password });
+        if (!result.success) {
+          toast.error(result.error.errors[0].message);
+          setIsLoading(false);
+          return;
+        }
         await login(email, password);
       } else {
-        // Validation: Don't allow creating an "admin" via the public form
-        if (role === 'admin') {
-          toast.error("Admin accounts cannot be created here.");
+        const result = registerSchema.safeParse({ email, password, name, role });
+        if (!result.success) {
+          toast.error(result.error.errors[0].message);
           setIsLoading(false);
           return;
         }

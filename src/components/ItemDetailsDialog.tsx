@@ -22,6 +22,7 @@ interface ItemDetailsDialogProps {
         price: number;
         image: string;
         category: string;
+        vendorId?: number;
     } | null;
     onAddToCart: (item: any, quantity: number) => void;
     isVendor?: boolean;
