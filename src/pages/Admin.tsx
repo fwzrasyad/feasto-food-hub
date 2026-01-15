@@ -9,76 +9,173 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Trash2, Edit, Shield, Store, Users, TrendingUp } from "lucide-react";
-import { vendors as initialVendors, hostels } from "@/lib/vendorsData";
+import { Plus, Trash2, Edit, Shield, Store, Users, TrendingUp, Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
+import { useAuth } from "@/context/AuthContext";
+import { hostels } from "@/lib/vendorsData";
 
 interface Vendor {
   id: number;
   name: string;
   hostel: string;
   description: string;
-  image: string;
-  rating: number;
-  cuisine: string;
+  image_url: string;
+  is_open: boolean;
+  owner_id: string;
 }
 
 const Admin = () => {
   const navigate = useNavigate();
-  const [vendors, setVendors] = useState<Vendor[]>(initialVendors);
+  const { user, loading: authLoading } = useAuth();
+  
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Dialog States
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   
+  // Dashboard Stats
+  const [stats, setStats] = useState({
+    totalVendors: 0,
+    totalOrders: 0,
+    activeHostels: 0
+  });
+
   const [newVendor, setNewVendor] = useState({
     name: "",
     hostel: "",
     description: "",
-    image: "",
-    cuisine: "",
+    image_url: "",
   });
 
   useEffect(() => {
-    const userRole = localStorage.getItem("userRole");
-    if (userRole !== "admin") {
+    if (authLoading) return;
+    
+    // Auth Check
+    if (!user || user.role !== "admin") {
       toast.error("Access denied. Admin privileges required.");
       navigate("/auth");
+      return;
     }
-  }, [navigate]);
 
-  const handleAddVendor = () => {
+    fetchData();
+  }, [user, authLoading, navigate]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // Fetch Vendors
+      const { data: vendorsData, error: vendorsError } = await supabase
+        .from('vendors')
+        .select('*')
+        .order('id', { ascending: false });
+      
+      if (vendorsError) throw vendorsError;
+      
+      // Fetch Order Count (simplified)
+      const { count: ordersCount, error: ordersError } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true });
+
+      if (ordersError) console.error("Orders fetch error", ordersError);
+
+      setVendors(vendorsData || []);
+      
+      // Calculate active hostels
+      const uniqueHostels = new Set(vendorsData?.map(v => v.hostel)).size;
+
+      setStats({
+        totalVendors: vendorsData?.length || 0,
+        totalOrders: ordersCount || 0,
+        activeHostels: uniqueHostels
+      });
+
+    } catch (error: any) {
+      toast.error("Error loading admin data");
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddVendor = async () => {
     if (!newVendor.name || !newVendor.hostel || !newVendor.description) {
       toast.error("Please fill in all required fields");
       return;
     }
 
-    const vendor: Vendor = {
-      id: Date.now(),
-      name: newVendor.name,
-      hostel: newVendor.hostel,
-      description: newVendor.description,
-      image: newVendor.image || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
-      rating: 4.5,
-      cuisine: newVendor.cuisine,
-    };
+    try {
+      const { data, error } = await supabase
+        .from('vendors')
+        .insert({
+          name: newVendor.name,
+          hostel: newVendor.hostel,
+          description: newVendor.description,
+          image_url: newVendor.image_url || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
+          is_open: true,
+          owner_id: user?.id // Assigning to current admin for now
+        })
+        .select()
+        .single();
+        
+      if (error) throw error;
 
-    setVendors([...vendors, vendor]);
-    toast.success("Vendor added successfully!");
-    setIsAddDialogOpen(false);
-    setNewVendor({ name: "", hostel: "", description: "", image: "", cuisine: "" });
+      setVendors([data, ...vendors]);
+      setStats(prev => ({ ...prev, totalVendors: prev.totalVendors + 1 }));
+      toast.success("Vendor added successfully!");
+      setIsAddDialogOpen(false);
+      setNewVendor({ name: "", hostel: "", description: "", image_url: "" });
+    } catch (error: any) {
+      toast.error(error.message);
+    }
   };
 
-  const handleDeleteVendor = (id: number) => {
-    setVendors(vendors.filter(v => v.id !== id));
-    toast.success("Vendor removed successfully!");
+  const handleDeleteVendor = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this vendor? This cannot be undone.")) return;
+
+    try {
+      const { error } = await supabase
+        .from('vendors')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setVendors(vendors.filter(v => v.id !== id));
+      setStats(prev => ({ ...prev, totalVendors: prev.totalVendors - 1 }));
+      toast.success("Vendor removed successfully!");
+    } catch (error: any) {
+      toast.error("Failed to delete vendor");
+      console.error(error);
+    }
   };
 
-  const handleEditVendor = () => {
+  const handleEditVendor = async () => {
     if (!selectedVendor) return;
 
-    setVendors(vendors.map(v => v.id === selectedVendor.id ? selectedVendor : v));
-    toast.success("Vendor updated successfully!");
-    setIsEditDialogOpen(false);
-    setSelectedVendor(null);
+    try {
+        const { error } = await supabase
+            .from('vendors')
+            .update({
+                name: selectedVendor.name,
+                hostel: selectedVendor.hostel,
+                description: selectedVendor.description,
+                image_url: selectedVendor.image_url
+            })
+            .eq('id', selectedVendor.id);
+
+        if (error) throw error;
+
+        setVendors(vendors.map(v => v.id === selectedVendor.id ? selectedVendor : v));
+        toast.success("Vendor updated successfully!");
+        setIsEditDialogOpen(false);
+        setSelectedVendor(null);
+    } catch (error: any) {
+        toast.error("Failed to update vendor");
+        console.error(error);
+    }
   };
 
   const openEditDialog = (vendor: Vendor) => {
@@ -86,11 +183,19 @@ const Admin = () => {
     setIsEditDialogOpen(true);
   };
 
-  const stats = [
-    { label: "Total Vendors", value: vendors.length, icon: Store, gradient: "gradient-primary" },
-    { label: "Active Hostels", value: hostels.length, icon: Users, gradient: "gradient-gold" },
-    { label: "Total Orders", value: "156", icon: TrendingUp, gradient: "gradient-primary" },
+  const statCards = [
+    { label: "Total Vendors", value: stats.totalVendors, icon: Store, gradient: "gradient-primary" },
+    { label: "Active Hostels", value: stats.activeHostels, icon: Users, gradient: "gradient-gold" },
+    { label: "Total Orders", value: stats.totalOrders, icon: TrendingUp, gradient: "gradient-primary" },
   ];
+
+  if (loading || authLoading) {
+    return (
+        <div className="flex h-screen w-full items-center justify-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        </div>
+    )
+  }
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -112,7 +217,7 @@ const Admin = () => {
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            {stats.map((stat, index) => (
+            {statCards.map((stat, index) => (
               <Card key={index} className="shadow-custom-md hover-lift">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
@@ -166,21 +271,15 @@ const Admin = () => {
                             <SelectValue placeholder="Select hostel" />
                           </SelectTrigger>
                           <SelectContent>
-                            {hostels.map((hostel) => (
+                            {hostels.map((hostel: string) => (
                               <SelectItem key={hostel} value={hostel}>{hostel}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="cuisine">Cuisine Type</Label>
-                        <Input
-                          id="cuisine"
-                          placeholder="e.g., Malaysian, Chinese"
-                          value={newVendor.cuisine}
-                          onChange={(e) => setNewVendor({ ...newVendor, cuisine: e.target.value })}
-                        />
-                      </div>
+                      {/* Removed Cuisine and Description from Dialog if not in DB? 
+                          Wait, DB has description. Cuisine is the one in question. 
+                          I'll keep Description. I'll remove Cuisine. */}
                       <div className="space-y-2">
                         <Label htmlFor="description">Description *</Label>
                         <Input
@@ -195,8 +294,8 @@ const Admin = () => {
                         <Input
                           id="image"
                           placeholder="https://..."
-                          value={newVendor.image}
-                          onChange={(e) => setNewVendor({ ...newVendor, image: e.target.value })}
+                          value={newVendor.image_url}
+                          onChange={(e) => setNewVendor({ ...newVendor, image_url: e.target.value })}
                         />
                       </div>
                     </div>
@@ -214,9 +313,12 @@ const Admin = () => {
                   <Card key={vendor.id} className="overflow-hidden shadow-custom-md hover-lift">
                     <div className="relative h-40 overflow-hidden">
                       <img 
-                        src={vendor.image} 
+                        src={vendor.image_url} 
                         alt={vendor.name}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                            (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4"; // fallback
+                        }}
                       />
                       <div className="absolute top-2 right-2 flex gap-2">
                         <Button
@@ -245,6 +347,11 @@ const Admin = () => {
                   </Card>
                 ))}
               </div>
+              {vendors.length === 0 && (
+                  <div className="text-center py-10 text-muted-foreground">
+                      No vendors found. Add one to get started!
+                  </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -274,26 +381,27 @@ const Admin = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {hostels.map((hostel) => (
+                    {hostels.map((hostel: string) => (
                       <SelectItem key={hostel} value={hostel}>{hostel}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-cuisine">Cuisine</Label>
-                <Input
-                  id="edit-cuisine"
-                  value={selectedVendor.cuisine}
-                  onChange={(e) => setSelectedVendor({ ...selectedVendor, cuisine: e.target.value })}
-                />
-              </div>
+              {/* Removed Cuisine from Edit as well */}
               <div className="space-y-2">
                 <Label htmlFor="edit-description">Description</Label>
                 <Input
                   id="edit-description"
                   value={selectedVendor.description}
                   onChange={(e) => setSelectedVendor({ ...selectedVendor, description: e.target.value })}
+                />
+              </div>
+               <div className="space-y-2">
+                <Label htmlFor="edit-image">Image URL</Label>
+                <Input
+                  id="edit-image"
+                  value={selectedVendor.image_url}
+                  onChange={(e) => setSelectedVendor({ ...selectedVendor, image_url: e.target.value })}
                 />
               </div>
             </div>

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Edit, Trash2, Store, Clock, CheckCircle, XCircle, Loader2, Utensils, ClipboardList, TrendingUp, DollarSign } from "lucide-react";
@@ -83,6 +83,15 @@ const VendorManagement = () => {
     image_url: ""
   });
 
+  // Store Edit State
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [editStoreForm, setEditStoreForm] = useState({
+    name: "",
+    description: "",
+    hostel: "",
+    image_url: ""
+  });
+
   // Load Data
   useEffect(() => {
     if (!user) {
@@ -108,12 +117,14 @@ const VendorManagement = () => {
         .eq('owner_id', user!.id)
         .single();
 
-      if (profileError && profileError.code !== 'PGRST116') {
-        console.error("Error fetching vendor:", profileError);
-      }
-
       if (profile) {
         setVendorProfile(profile);
+        setEditStoreForm({
+          name: profile.name,
+          description: profile.description,
+          hostel: profile.hostel,
+          image_url: profile.image_url
+        });
 
         // 2. Parallel Fetch: Orders & Menu
         // This is much faster than awaiting them sequentially
@@ -180,6 +191,39 @@ const VendorManagement = () => {
     } catch (error: any) {
       toast.error(error.message);
       setLoading(false);
+    }
+  };
+
+  // --- ACTIONS: UPDATE STORE ---
+  const handleUpdateStore = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!vendorProfile) return;
+    
+    try {
+      const { error } = await supabase
+        .from('vendors')
+        .update({
+          name: editStoreForm.name,
+          description: editStoreForm.description,
+          hostel: editStoreForm.hostel,
+          image_url: editStoreForm.image_url
+        })
+        .eq('id', vendorProfile.id);
+
+      if (error) throw error;
+
+      toast.success("Store profile updated!");
+      setVendorProfile({
+        ...vendorProfile,
+        name: editStoreForm.name,
+        description: editStoreForm.description,
+        hostel: editStoreForm.hostel,
+        image_url: editStoreForm.image_url
+      });
+      setIsEditProfileOpen(false);
+    } catch (error: any) {
+      toast.error("Failed to update store");
+      console.error(error);
     }
   };
 
@@ -301,8 +345,7 @@ const VendorManagement = () => {
     const fileName = `${Math.random()}.${fileExt}`;
     const filePath = `${field}/${fileName}`;
 
-    const toastId = "upload";
-    toast.loading("Uploading image...", { id: toastId });
+    const toastId = toast.loading("Uploading image...");
 
     try {
       console.log(`Starting upload to ${filePath}`);
@@ -319,22 +362,40 @@ const VendorManagement = () => {
       const { data } = supabase.storage.from('images').getPublicUrl(filePath);
       console.log("Public URL:", data.publicUrl);
 
-      toast.success("Upload successful!", { id: toastId });
+      toast.dismiss(toastId);
+      toast.success("Upload successful!");
 
       if (field === 'store') {
-        setOnboardingForm({ ...onboardingForm, image_url: data.publicUrl });
+        if (isEditProfileOpen) {
+             setEditStoreForm({ ...editStoreForm, image_url: data.publicUrl });
+        } else {
+             setOnboardingForm({ ...onboardingForm, image_url: data.publicUrl });
+        }
+        
         // If profile exists, auto-save the new image
-        if (vendorProfile) {
-          const { error: dbError } = await supabase.from('vendors').update({ image_url: data.publicUrl }).eq('id', vendorProfile.id);
-          if (dbError) console.error("DB Update Error:", dbError);
-          setVendorProfile({ ...vendorProfile, image_url: data.publicUrl });
+        if (vendorProfile && !isEditProfileOpen) {
+             // Only auto-save if we are NOT in the edit dialog (which has its own save button)
+             // Actually, if we are in Edit Dialog, we just update form state, we wait for Save.
+             // But the original code auto-saved. Let's keep auto-save ONLY for onboarding?
+             // No, wait. original code auto-saved if vendorProfile existed.
+             // If we are in Edit Dialog, we probably don't want to auto-save to DB yet!
+             // So:
+             if (!isEditProfileOpen) {
+                  const { error: dbError } = await supabase.from('vendors').update({ image_url: data.publicUrl }).eq('id', vendorProfile.id);
+                  if (dbError) console.error("DB Update Error:", dbError);
+                  setVendorProfile({ ...vendorProfile, image_url: data.publicUrl });
+             }
         }
       } else {
         setMenuForm({ ...menuForm, image_url: data.publicUrl });
       }
     } catch (error: any) {
       console.error("Upload Handler Log:", error);
-      toast.error(`Upload failed: ${error.message}`, { id: toastId });
+      toast.dismiss(toastId);
+      toast.error(`Upload failed: ${error.message}`);
+    } finally {
+      // Allow re-uploading the same file
+      event.target.value = '';
     }
   };
 
@@ -449,12 +510,60 @@ const VendorManagement = () => {
                   {vendorProfile.is_open ? "Open" : "Closed"}
                 </Button>
               </div>
-              <Button variant="outline" className="shadow-sm hover:shadow" onClick={() => {
-                localStorage.setItem("selectedVendorId", vendorProfile.id.toString());
-                navigate(`/menu`);
-              }}>
-                View Public Page
-              </Button>
+              <div className="flex gap-2">
+                 <Dialog open={isEditProfileOpen} onOpenChange={setIsEditProfileOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" className="shadow-sm hover:shadow">
+                      <Edit className="w-4 h-4 mr-2" /> Edit Profile
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Edit Store Profile</DialogTitle>
+                      <DialogDescription>Update your store information</DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleUpdateStore} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>Store Name</Label>
+                        <Input required value={editStoreForm.name} onChange={e => setEditStoreForm({ ...editStoreForm, name: e.target.value })} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Hostel</Label>
+                        <Select value={editStoreForm.hostel} onValueChange={v => setEditStoreForm({ ...editStoreForm, hostel: v })}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Aman Damai">Aman Damai</SelectItem>
+                            <SelectItem value="Fajar Harapan">Fajar Harapan</SelectItem>
+                            <SelectItem value="Bakti Permai">Bakti Permai</SelectItem>
+                            <SelectItem value="Cahaya Gemilang">Cahaya Gemilang</SelectItem>
+                            <SelectItem value="Indah Kembara">Indah Kembara</SelectItem>
+                            <SelectItem value="Restu & Saujana">Restu & Saujana</SelectItem>
+                            <SelectItem value="Tekun">Tekun</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Description</Label>
+                        <Textarea required value={editStoreForm.description} onChange={e => setEditStoreForm({ ...editStoreForm, description: e.target.value })} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Cover Image</Label>
+                         <div className="flex gap-2">
+                            <Input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'store')} className="border-primary/20" />
+                          </div>
+                         {editStoreForm.image_url && <img src={editStoreForm.image_url} alt="Cover" className="h-20 w-auto rounded mt-2 border" />}
+                      </div>
+                      <Button type="submit" className="w-full gradient-primary">Save Changes</Button>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+                <Button variant="outline" className="shadow-sm hover:shadow" onClick={() => {
+                    localStorage.setItem("selectedVendorId", vendorProfile.id.toString());
+                    navigate(`/menu`);
+                }}>
+                    View Public Page
+                </Button>
+              </div>
             </div>
           </div>
 

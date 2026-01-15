@@ -97,26 +97,61 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
-    // 1. Check Active Session
-    const checkSession = async () => {
-      await refreshLevel();
-      setLoading(false);
+    let mounted = true;
+
+    const initializeAuth = async () => {
+      try {
+        // 1. Initial Session Check
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Error getting session:", error);
+          if (mounted) setUser(null);
+        } else if (session?.user) {
+          console.log("Found existing session:", session.user.email);
+          const userProfile = await fetchProfile(session.user);
+          if (mounted) setUser(userProfile);
+        } else {
+          if (mounted) setUser(null);
+        }
+      } catch (err) {
+        console.error("Auth initialization error:", err);
+        if (mounted) setUser(null);
+      } finally {
+        if (mounted) setLoading(false);
+      }
     };
 
-    checkSession();
+    initializeAuth();
 
     // 2. Listen for Auth Changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
-        const userProfile = await fetchProfile(session.user);
-        setUser(userProfile);
-      } else {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth Message:", event);
+      
+      // If we are already loading, let the initial check finish to avoid state thrashing
+      // Unless it's a SIGN_OUT event which should be immediate
+      
+      if (event === 'SIGNED_OUT') {
         setUser(null);
+        setLoading(false);
+        return;
       }
-      setLoading(false);
+
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+        if (session?.user) {
+          const userProfile = await fetchProfile(session.user);
+          if (mounted) {
+            setUser(userProfile);
+            setLoading(false); // Ensure loading stops
+          }
+        }
+      }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string) => {

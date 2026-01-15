@@ -53,7 +53,7 @@ const Profile = () => {
         .update({
           username: formData.username,
           full_name: formData.full_name,
-          phone_number: formData.phone_number,
+          // phone_number: formData.phone_number, // Column missing in DB
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id);
@@ -184,7 +184,7 @@ const Profile = () => {
                   <Input disabled value={user.email} className="h-11 bg-muted/50" />
                 </div>
 
-                <div className="grid gap-2">
+                {/* <div className="grid gap-2">
                   <Label className="flex items-center gap-2"><Phone className="w-4 h-4" /> Phone Number</Label>
                   <Input
                     value={formData.phone_number}
@@ -192,7 +192,7 @@ const Profile = () => {
                     className="h-11"
                     placeholder="+60..."
                   />
-                </div>
+                </div> */}
 
                 <div className="flex gap-3 pt-4">
                   <Button type="submit" disabled={loading} className="w-full gradient-primary">
