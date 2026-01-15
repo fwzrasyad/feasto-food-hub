@@ -101,8 +101,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const initializeAuth = async () => {
       try {
-        // 1. Initial Session Check
-        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log("Initializing Auth...");
+        // 1. Initial Session Check with Timeout
+        // Prevent hanging indefinitely if cookies are weird
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise<{ data: { session: null }; error: any }>((_, reject) =>
+          setTimeout(() => reject(new Error("Auth Session Timeout")), 3000)
+        );
+
+        let sessionData;
+        try {
+            sessionData = await Promise.race([sessionPromise, timeoutPromise]);
+        } catch (e) {
+            console.warn("Session check timed out, proceeding as logged out.");
+            sessionData = { data: { session: null }, error: null };
+        }
+
+        const { data: { session }, error } = sessionData as { data: { session: any }; error: any };
         
         if (error) {
           console.error("Error getting session:", error);
@@ -110,7 +125,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         } else if (session?.user) {
           console.log("Found existing session:", session.user.email);
           const userProfile = await fetchProfile(session.user);
-          if (mounted) setUser(userProfile);
+          if (mounted) {
+             // Basic deep check to avoid re-renders if nothing changed
+             setUser((prev) => {
+                 if (JSON.stringify(prev) === JSON.stringify(userProfile)) return prev;
+                 return userProfile;
+             });
+          }
         } else {
           if (mounted) setUser(null);
         }
@@ -148,9 +169,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     });
 
+    // 3. Handle Tab Visibility/Resume
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        console.log("Tab became visible, verifying session...");
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error || !session) {
+          console.warn("Session invalid on resume:", error);
+          if (mounted) setUser(null);
+        } else if (session?.user && mounted) {
+           // Optional: You could re-fetch profile here if you suspect it changes often,
+           // but normally just ensuring the session is valid is enough to fix the token.
+           console.log("Session verified on resume.");
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
 
